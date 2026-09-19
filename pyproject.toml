@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-session-insight"
+version = "0.1.0"
+description = "Inspect Claude Code JSONL sessions from local folders, S3, or GCS"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Claude Session Insight contributors"}]
+dependencies = []
+
+[project.optional-dependencies]
+s3 = ["s3fs>=2024.3"]
+gcs = ["gcsfs>=2024.3"]
+cloud = ["s3fs>=2024.3", "gcsfs>=2024.3"]
+
+[project.scripts]
+claude-insight = "claude_insight.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+claude_insight = ["graph_view.html", "demo_session.jsonl", "py.typed", "vendor/*.min.js", "vendor/*.LICENSE", "vendor/*.LICENSE-d3", "vendor/*.NOTICE", "vendor/README.md"]

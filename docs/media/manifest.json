@@ -1,0 +1,41 @@
+{
+  "provenance": "synthetic",
+  "hash_algorithm": "sha256",
+  "input_canonicalization": "lf",
+  "assets": [
+    {
+      "path": "docs/media/overview.png",
+      "sha256": "221531f694dd4653e3fea149d605e92ac629e88a3b3bc588a1484ab49791fd7e"
+    },
+    {
+      "path": "docs/media/session-map.png",
+      "sha256": "92f130b33d2b68384a0163acb667fd4446b275ab037a73667776e2798b251a25"
+    },
+    {
+      "path": "docs/media/event-inspector.png",
+      "sha256": "0f34bd4d3ee87746d48a9525798ee34184edfae5d768f89668bbdae3a54eed90"
+    },
+    {
+      "path": "docs/media/demo.mp4",
+      "sha256": "426cae46162f781c19b82d53c8fbfa50eb24324c7132f940a83d4d7a45dddc88"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "scripts/generate_public_media.py",
+      "sha256": "b9c4ebeccfb71d73a63cc7adad060ed80692c09e788799fb96e0f5d254538324"
+    },
+    {
+      "path": "src/claude_insight/graph.py",
+      "sha256": "39b8f5b13981148a9c2bca635d1cc17df30afc85d1298fe925ae3dc09dd9dbfd"
+    },
+    {
+      "path": "src/claude_insight/graph_view.html",
+      "sha256": "c3ec27bb76ad5b7eb3efef7929b043c5cde1d5e100f07c30dbdac928b08b798c"
+    },
+    {
+      "path": "synthetic-graph-json",
+      "sha256": "87b43020c1cfbc22a214fc9ac93000a4f768017b3950437e3aed33b14b2a684a"
+    }
+  ]
+}
