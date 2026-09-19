@@ -18,12 +18,16 @@
     {
       "path": "docs/media/demo.mp4",
       "sha256": "426cae46162f781c19b82d53c8fbfa50eb24324c7132f940a83d4d7a45dddc88"
+    },
+    {
+      "path": "docs/media/demo.gif",
+      "sha256": "92be3d083e5d91c42ffcc7c0897d4f56b799fc288197f3c2507db6e5572d9b58"
     }
   ],
   "inputs": [
     {
       "path": "scripts/generate_public_media.py",
-      "sha256": "b9c4ebeccfb71d73a63cc7adad060ed80692c09e788799fb96e0f5d254538324"
+      "sha256": "4d89433118aafcd9345245b2418efabf7cfcd178231f06110e38b9d3ca77b0f4"
     },
     {
       "path": "src/claude_insight/graph.py",
@@ -35,7 +39,18 @@
     },
     {
       "path": "synthetic-graph-json",
-      "sha256": "87b43020c1cfbc22a214fc9ac93000a4f768017b3950437e3aed33b14b2a684a"
+      "sha256": "61f3be1be70d53ca2eddac815242b3a01c49b334da68d82890ba9f5d1c68f70c"
+    },
+    {
+      "path": "scripts/generate_demo_preview.py",
+      "sha256": "f591a7f7141e6ba489b747e6af4ae13670b65e32becb9b361dc89714e0e6d9f6"
     }
-  ]
+  ],
+  "preview": {
+    "source": "docs/media/demo.mp4",
+    "source_sha256": "426cae46162f781c19b82d53c8fbfa50eb24324c7132f940a83d4d7a45dddc88",
+    "output": "docs/media/demo.gif",
+    "generator": "scripts/generate_demo_preview.py"
+  },
+  "fixture_float_decimals": 9
 }

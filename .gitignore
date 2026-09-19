@@ -23,10 +23,13 @@ token.json
 *.mp4
 *.webm
 *.png
+*.gif
 !docs/media/demo.mp4
+!docs/media/demo.gif
 !docs/media/overview.png
 !docs/media/session-map.png
 !docs/media/event-inspector.png
+!docs/brand/icon.png
 *.html
 !src/claude_insight/graph_view.html
 *.jsonl

@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from public_release_audit import (AuditError, candidate_files, check_candidates, ignored, ignore_rules,
-                                  media_files, scan_mp4, scan_png, scan_text, text_digest)
+                                  media_files, scan_gif, scan_mp4, scan_png, scan_text, text_digest)
 
 
 SCRATCH_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "private-audit-tests"
@@ -50,31 +50,40 @@ class PublicReleaseAuditTests(unittest.TestCase):
             root = Path(scratch)
             media = root / "docs" / "media"
             media.mkdir(parents=True)
-            screenshot = media / "overview.png"
-            video = media / "demo.mp4"
+            filenames = ("overview.png", "session-map.png", "event-inspector.png", "demo.mp4", "demo.gif")
+            files = [media / name for name in filenames]
+            screenshot, video = files[0], files[3]
             generator = root / "scripts/generate_public_media.py"
             generator.parent.mkdir()
-            generator.write_text("def fabricated_graph():\n    return {'title': 'Synthetic'}\n")
+            generator.write_text("import json\ndef fabricated_graph():\n    return {'title': 'Synthetic'}\n"
+                                 "def canonical_graph_bytes(graph):\n    return json.dumps(graph, sort_keys=True, "
+                                 "separators=(',', ':')).encode()\n")
+            preview_generator = root / "scripts/generate_demo_preview.py"
+            preview_generator.write_text("# synthetic preview test\n")
             graph_source = root / "src/claude_insight/graph.py"
             graph_source.parent.mkdir(parents=True)
             graph_source.write_text("# synthetic test\n")
             template = graph_source.with_name("graph_view.html")
             template.write_text("<p>synthetic</p>\n")
-            screenshot.write_bytes(b"synthetic image for manifest check")
-            video.write_bytes(b"synthetic video for manifest check")
+            for file in files:
+                file.write_bytes(("synthetic " + file.name).encode())
             assets = [{"path": f"docs/media/{file.name}", "sha256": hashlib.sha256(file.read_bytes()).hexdigest()}
-                      for file in (screenshot, video)]
+                      for file in files]
             inputs = [{"path": file.relative_to(root).as_posix(), "sha256": text_digest(file)}
-                      for file in (generator, graph_source, template)]
+                      for file in (generator, preview_generator, graph_source, template)]
             graph_json = json.dumps({"title": "Synthetic"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
             inputs.append({"path": "synthetic-graph-json", "sha256": hashlib.sha256(graph_json.encode()).hexdigest()})
-            (media / "manifest.json").write_text(json.dumps({"provenance": "synthetic", "hash_algorithm": "sha256",
-                                                           "input_canonicalization": "lf", "inputs": inputs, "assets": assets}))
+            (media / "manifest.json").write_text(json.dumps({
+                "provenance": "synthetic", "hash_algorithm": "sha256", "input_canonicalization": "lf",
+                "fixture_float_decimals": 9, "inputs": inputs, "assets": assets,
+                "preview": {"source": "docs/media/demo.mp4", "source_sha256": assets[3]["sha256"],
+                            "output": "docs/media/demo.gif", "generator": "scripts/generate_demo_preview.py"},
+            }))
             self.assertEqual(media_files(root), {asset["path"] for asset in assets})
             screenshot.write_bytes(b"changed")
             with self.assertRaisesRegex(AuditError, "hash mismatch"):
                 media_files(root)
-            screenshot.write_bytes(b"synthetic image for manifest check")
+            screenshot.write_bytes(b"synthetic overview.png")
             (media / "extra.txt").write_text("not reviewed")
             with self.assertRaisesRegex(AuditError, "unmanifested"):
                 media_files(root)
@@ -143,6 +152,23 @@ class PublicReleaseAuditTests(unittest.TestCase):
         with patch("public_release_audit.subprocess.run", return_value=Result()):
             with self.assertRaisesRegex(AuditError, "no audio"):
                 scan_mp4("demo.mp4", Path("unused"), b"ftypmoov")
+
+    def test_gif_rejects_comment_extension(self):
+        source = Path(__file__).resolve().parents[1] / "docs/media/demo.gif"
+        data = source.read_bytes()
+        scan_gif("demo.gif", data)
+        with self.assertRaisesRegex(AuditError, "comments or metadata"):
+            scan_gif("demo.gif", data[:-1] + b"\x21\xfe\x03bad\x00" + data[-1:])
+
+    def test_canonical_fixture_hash_ignores_tiny_float_drift(self):
+        import math
+        import generate_public_media
+        encode = generate_public_media.canonical_graph_bytes
+        self.assertEqual(encode({"cost": sum([0.1] * 10)}),
+                         encode({"cost": math.fsum([0.1] * 10)}))
+        self.assertNotEqual(encode({"cost": 1.0}), encode({"cost": 1.000001}))
+        with self.assertRaisesRegex(ValueError, "nonfinite"):
+            encode({"cost": float("nan")})
 
 
 if __name__ == "__main__":

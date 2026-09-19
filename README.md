@@ -1,10 +1,24 @@
-# Claude Session Insight
+<p align="center"><img src="docs/brand/icon.png" alt="claudeinside icon" width="112"></p>
+<h1 align="center">claudeinside</h1>
+<p align="center"><strong>Claude Session Insight</strong><br>Explore Claude Code sessions through readable maps, charts, and recorded events.</p>
+<p align="center">
+  <img alt="Python 3.9 or newer" src="https://img.shields.io/badge/Python-3.9%2B-315f4f">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-315f4f"></a>
+  <img alt="Offline viewer" src="https://img.shields.io/badge/viewer-offline-315f4f">
+  <img alt="Local, S3, and GCS sources" src="https://img.shields.io/badge/sources-local%20%7C%20S3%20%7C%20GCS-315f4f">
+</p>
 
-A Python library and CLI for exploring Claude Code JSONL sessions. It reads local transcripts and exports a standalone, animated HTML graph. The graph works offline: no server, CDN, account, or browser extension is required.
+A Python library and CLI for exploring Claude Code JSONL sessions. It reads transcripts and exports a standalone, animated HTML report. The viewer works offline: no server, CDN, account, or browser extension is required.
+
+**Contents:** [See it in action](#see-it-in-action) · [Install and try it](#install-and-try-it) · [Read from S3 or GCS](#read-sessions-from-s3-or-gcs) · [Python API](#python-api) · [Extend it](#extend-it) · [Prices and limits](#prices-and-limits) · [License](#license)
 
 ## See it in action
 
-These screenshots and the [silent MP4 walkthrough](docs/media/demo.mp4) show a **fabricated 72-turn session** for a fictional sample app. They contain no real transcript, account, or project data. The video opens the overview, drills from session ranges to a turn, and inspects a simulated tool failure.
+This animated preview shows a **fabricated 72-turn session** for a fictional sample app. Click it for the [full silent MP4 walkthrough](docs/media/demo.mp4). Every frame is synthetic; no real transcript, account, or project data appears.
+
+[![Animated synthetic session preview; click to play the full MP4 demo](docs/media/demo.gif)](docs/media/demo.mp4)
+
+The walkthrough opens the overview, drills from session ranges to a turn, and inspects a simulated tool failure. Still images show the details:
 
 | Session overview | Large-session map |
 | --- | --- |
@@ -12,7 +26,7 @@ These screenshots and the [silent MP4 walkthrough](docs/media/demo.mp4) show a *
 
 ![Recorded event inspector showing a synthetic tool failure](docs/media/event-inspector.png)
 
-For maintainers: `python scripts/generate_public_media.py` recreates these assets using Playwright Chromium and ffmpeg. Neither tool is needed to run the demo. The [media manifest](docs/media/manifest.json) records SHA-256 hashes for the published files.
+For maintainers: run `python scripts/generate_public_media.py`, then `python scripts/generate_demo_preview.py` to recreate the screenshots, MP4, and GIF. Capture uses Playwright Chromium and ffmpeg; neither is needed to run the demo. The [media manifest](docs/media/manifest.json) records SHA-256 hashes and synthetic provenance.
 
 For maintainers: before committing or pushing this folder, run `python scripts/public_release_audit.py --check`. Private session exports and generated reports stay here under `.gitignore`; the audit checks the files Git would include, including anything force added. See the [release procedure](docs/PUBLIC_RELEASE.md).
 
@@ -172,3 +186,7 @@ Supply your own exact-model USD-per-million-token rates with `--prices rates.jso
 ```
 
 The parser skips malformed JSONL lines, deduplicates streaming snapshots by message ID using maximum token counters, and deduplicates tool uses by tool ID. Child transcripts are included in cost when their task IDs can be linked. Session text may include secrets; inspect exported HTML before sharing it. Other Claude product transcript formats are outside this parser's scope.
+
+## License
+
+claudeinside is released under the [MIT License](LICENSE).

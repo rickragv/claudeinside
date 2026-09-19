@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -52,6 +53,27 @@ PROMPTS = (
     "Check the retry test again",
 )
 TOOLS = ("Read", "Grep", "Edit", "Bash", "Read", "Agent")
+
+
+def canonical_graph_bytes(value: dict) -> bytes:
+    """Hash the synthetic fixture across Python floating-sum implementations.
+
+    Only provenance uses this 9-decimal normalization; rendered analytics keep
+    their original values. A nanodollar cost difference cannot change the hash.
+    """
+    def normalize(item):
+        if isinstance(item, float):
+            if not math.isfinite(item):
+                raise ValueError("synthetic graph has a nonfinite number")
+            return round(item, 9) or 0.0
+        if isinstance(item, dict):
+            return {key: normalize(entry) for key, entry in item.items()}
+        if isinstance(item, (list, tuple)):
+            return [normalize(entry) for entry in item]
+        return item
+
+    return json.dumps(normalize(value), sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False, allow_nan=False).encode("utf-8")
 
 
 def stamp(seconds: int) -> str:
@@ -234,6 +256,7 @@ def main() -> None:
         "provenance": "synthetic",
         "hash_algorithm": "sha256",
         "input_canonicalization": "lf",
+        "fixture_float_decimals": 9,
         "assets": [{
             "path": "docs/media/" + name,
             "sha256": hashlib.sha256((MEDIA / name).read_bytes()).hexdigest(),
@@ -247,9 +270,7 @@ def main() -> None:
             ROOT / "src" / "claude_insight" / "graph_view.html",
         )] + [{
             "path": "synthetic-graph-json",
-            "sha256": hashlib.sha256(json.dumps(
-                data, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
-            ).encode("utf-8")).hexdigest(),
+            "sha256": hashlib.sha256(canonical_graph_bytes(data)).hexdigest(),
         }],
     }
     (MEDIA / "manifest.json").write_bytes((json.dumps(manifest, indent=2) + "\n").encode("utf-8"))

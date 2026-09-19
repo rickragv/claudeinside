@@ -23,6 +23,7 @@ FIXED = {
     ".gitignore", ".gitattributes", ".github/workflows/python.yml", "README.md", "LICENSE",
     "pyproject.toml", "docs/PUBLIC_RELEASE.md",
     "scripts/make_demo.py", "scripts/generate_public_media.py",
+    "scripts/generate_demo_preview.py", "docs/brand/icon.png",
     "scripts/public_release_audit.py", "src/claude_insight/__init__.py",
     "src/claude_insight/analytics.py", "src/claude_insight/cli.py",
     "src/claude_insight/core.py", "src/claude_insight/demo_session.jsonl",
@@ -48,7 +49,10 @@ VENDOR_SHA256 = {
     "src/claude_insight/vendor/echarts.min.js":
         "b66b25aeb4df84e33199dc21694014d336d222cbd9deb0e5a7c14bd6aa0d0fd0",
 }
-MEDIA_SUFFIXES = {".png", ".mp4"}
+BRAND_SHA256 = "8e3c4935bd6534298b7e9421eab1100786cb5dbfa80a8f0a557237305e1c8478"
+EXPECTED_MEDIA = {"docs/media/overview.png", "docs/media/session-map.png",
+                  "docs/media/event-inspector.png", "docs/media/demo.mp4", "docs/media/demo.gif"}
+MEDIA_SUFFIXES = {".png", ".mp4", ".gif"}
 TEXT_SUFFIXES = {".py", ".md", ".toml", ".yml", ".json", ".jsonl", ".html", ".LICENSE", ".NOTICE"}
 SENSITIVE = [
     ("user home path", re.compile(r"(?i)(?:[a-z]:[\\/]|/)(?:users|home)[\\/][^\\/\s'\"<>]{2,}")),
@@ -86,10 +90,12 @@ def media_files(root: Path) -> set[str]:
     if (manifest.get("provenance") != "synthetic"
             or manifest.get("hash_algorithm") != "sha256"
             or manifest.get("input_canonicalization") != "lf"
+            or manifest.get("fixture_float_decimals") != 9
             or not isinstance(manifest.get("assets"), list)):
         raise AuditError("media provenance must be synthetic with an assets list")
     inputs = manifest.get("inputs")
-    expected_inputs = {"scripts/generate_public_media.py", "src/claude_insight/graph.py",
+    expected_inputs = {"scripts/generate_public_media.py", "scripts/generate_demo_preview.py",
+                       "src/claude_insight/graph.py",
                        "src/claude_insight/graph_view.html", "synthetic-graph-json"}
     if (not isinstance(inputs, list) or len(inputs) != len(expected_inputs)
             or not all(isinstance(item, dict) for item in inputs)
@@ -107,7 +113,7 @@ def media_files(root: Path) -> set[str]:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     graph = module.fabricated_graph()
-    graph_bytes = json.dumps(graph, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    graph_bytes = module.canonical_graph_bytes(graph)
     graph_sha = next(item["sha256"] for item in inputs if item["path"] == "synthetic-graph-json")
     if digest(graph_bytes) != graph_sha:
         raise AuditError("synthetic graph fixture hash mismatch")
@@ -116,7 +122,7 @@ def media_files(root: Path) -> set[str]:
         if not isinstance(entry, dict):
             raise AuditError("invalid media entry")
         name, sha = entry.get("path"), entry.get("sha256")
-        if (not isinstance(name, str) or not re.fullmatch(r"docs/media/[a-z0-9_-]+\.(?:png|mp4)", name)
+        if (not isinstance(name, str) or name not in EXPECTED_MEDIA
                 or not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha)):
             raise AuditError("invalid media path or SHA256")
         if name in result:
@@ -125,8 +131,14 @@ def media_files(root: Path) -> set[str]:
         if not path.is_file() or path.is_symlink() or digest(path.read_bytes()) != sha:
             raise AuditError(f"media hash mismatch: {name}")
         result.add(name)
-    if not result or not any(p.endswith(".png") for p in result) or not any(p.endswith(".mp4") for p in result):
-        raise AuditError("at least one PNG screenshot and one MP4 demo are required")
+    if result != EXPECTED_MEDIA:
+        raise AuditError("synthetic media asset list must match the fixed public set")
+    preview = manifest.get("preview")
+    mp4_sha = next(item["sha256"] for item in manifest["assets"]
+                   if item["path"] == "docs/media/demo.mp4")
+    if preview != {"source": "docs/media/demo.mp4", "source_sha256": mp4_sha,
+                   "output": "docs/media/demo.gif", "generator": "scripts/generate_demo_preview.py"}:
+        raise AuditError("GIF preview provenance does not match verified synthetic MP4")
     actual = {p.relative_to(root).as_posix() for p in (root / "docs/media").iterdir()}
     if actual != result | {"docs/media/manifest.json"}:
         raise AuditError("docs/media contains unmanifested files")
@@ -165,6 +177,80 @@ def scan_png(name: str, data: bytes) -> None:
                 raise AuditError(f"{name}: trailing PNG bytes")
             return
     raise AuditError(f"{name}: incomplete PNG")
+
+
+def scan_gif(name: str, data: bytes) -> None:
+    """Accept only the bounded, metadata-free browser preview structure."""
+    if len(data) > 5 * 1024 * 1024 or len(data) < 13 or data[:6] != b"GIF89a":
+        raise AuditError(f"{name}: invalid or oversized GIF")
+    width = int.from_bytes(data[6:8], "little")
+    height = int.from_bytes(data[8:10], "little")
+    if (width, height) != (960, 540):
+        raise AuditError(f"{name}: unexpected GIF dimensions")
+    offset = 13
+    if data[10] & 0x80:
+        offset += 3 * (1 << ((data[10] & 7) + 1))
+    frames = 0
+    duration_cs = 0
+    delay_cs = 0
+    loop_seen = False
+
+    def subblocks(start: int) -> tuple[list[bytes], int]:
+        blocks = []
+        while start < len(data):
+            size = data[start]
+            start += 1
+            if size == 0:
+                return blocks, start
+            if start + size > len(data):
+                break
+            blocks.append(data[start:start + size])
+            start += size
+        raise AuditError(f"{name}: truncated GIF data")
+
+    while offset < len(data):
+        marker = data[offset]
+        offset += 1
+        if marker == 0x3B:
+            if offset != len(data) or not (60 <= frames <= 120) or not (1200 <= duration_cs <= 1800):
+                raise AuditError(f"{name}: incomplete GIF or unexpected playback length")
+            return
+        if marker == 0x21:
+            if offset >= len(data):
+                break
+            label = data[offset]
+            offset += 1
+            if label == 0xF9:
+                if offset + 6 > len(data) or data[offset] != 4 or data[offset + 5] != 0:
+                    raise AuditError(f"{name}: invalid GIF graphic control block")
+                delay_cs = int.from_bytes(data[offset + 2:offset + 4], "little")
+                offset += 6
+            elif label == 0xFF:
+                if loop_seen or offset + 12 > len(data) or data[offset] != 11 or data[offset + 1:offset + 12] != b"NETSCAPE2.0":
+                    raise AuditError(f"{name}: unexpected GIF application metadata")
+                loop_seen = True
+                blocks, offset = subblocks(offset + 12)
+                if blocks != [b"\x01\x00\x00"]:
+                    raise AuditError(f"{name}: unexpected GIF loop data")
+            else:
+                raise AuditError(f"{name}: GIF comments or metadata are not allowed")
+        elif marker == 0x2C:
+            if offset + 9 > len(data):
+                break
+            packed = data[offset + 8]
+            offset += 9
+            if packed & 0x80:
+                offset += 3 * (1 << ((packed & 7) + 1))
+            if offset >= len(data):
+                break
+            offset += 1  # LZW minimum code size.
+            _, offset = subblocks(offset)
+            frames += 1
+            duration_cs += delay_cs
+            delay_cs = 0
+        else:
+            raise AuditError(f"{name}: invalid GIF block")
+    raise AuditError(f"{name}: truncated GIF")
 
 
 def scan_mp4(name: str, path: Path, data: bytes) -> None:
@@ -291,8 +377,12 @@ def audit(root: Path, check_git: bool = True) -> list[str]:
         data = path.read_bytes()
         if name in VENDOR_SHA256 and digest(data) != VENDOR_SHA256[name]:
             raise AuditError(f"vendored dependency hash mismatch: {name}")
+        if name == "docs/brand/icon.png" and digest(data) != BRAND_SHA256:
+            raise AuditError("brand icon hash mismatch")
         if name.endswith(".png"):
             scan_png(name, data)
+        elif name.endswith(".gif"):
+            scan_gif(name, data)
         elif name.endswith(".mp4"):
             scan_mp4(name, path, data)
         elif name not in VENDOR_SHA256:
