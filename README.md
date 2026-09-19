@@ -14,17 +14,17 @@ A Python library and CLI for exploring Claude Code JSONL sessions. It reads tran
 
 ## See it in action
 
-This animated preview shows a **fabricated 72-turn session** for a fictional sample app. Click it for the [full silent MP4 walkthrough](docs/media/demo.mp4). Every frame is synthetic; no real transcript, account, or project data appears.
+This animated preview walks through a 72-turn Claude Code session for a sample application. Click it for the [full silent MP4 walkthrough](docs/media/demo.mp4). The preview contains no real transcript, account, or project data.
 
-[![Animated synthetic session preview; click to play the full MP4 demo](docs/media/demo.gif)](docs/media/demo.mp4)
+[![Animated session preview; click to play the full MP4 demo](docs/media/demo.gif)](docs/media/demo.mp4)
 
-The walkthrough opens the overview, drills from session ranges to a turn, and inspects a simulated tool failure. Still images show the details:
+The walkthrough opens the overview, drills from session ranges to a turn, and inspects a sample tool failure. Still images show the details:
 
 | Session overview | Large-session map |
 | --- | --- |
-| ![Overview with token traffic, cost, and tool reliability for the synthetic session](docs/media/overview.png) | ![Session flow grouping 72 synthetic turns into readable ranges](docs/media/session-map.png) |
+| ![Overview with token traffic, cost, and tool reliability for the sample session](docs/media/overview.png) | ![Session flow grouping 72 sample turns into readable ranges](docs/media/session-map.png) |
 
-![Recorded event inspector showing a synthetic tool failure](docs/media/event-inspector.png)
+![Recorded event inspector showing a sample tool failure](docs/media/event-inspector.png)
 
 For maintainers: run `python scripts/generate_public_media.py`, then `python scripts/generate_demo_preview.py` to recreate the screenshots, MP4, and GIF. Capture uses Playwright Chromium and ffmpeg; neither is needed to run the demo. The [media manifest](docs/media/manifest.json) records SHA-256 hashes and synthetic provenance.
 
